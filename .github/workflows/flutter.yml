@@ -1,31 +1,41 @@
-name: Build Flutter ARM64 APK
+name: Build APK
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: 'stable'   # veya '3.3.10' gibi uyumlu sürüm
 
-      - name: Install Dependencies
+      - name: Flutter Pub Get
         run: flutter pub get
 
-      - name: Build ARM64 APK
-        run: flutter build apk --release --target-platform android-arm64
+      - name: Ensure Android v2 embedding & Gradle wrapper
+        run: |
+          echo "Checking android folder..."
+          if [ ! -f android/gradlew ]; then
+            echo "No gradlew found - creating android with flutter create ."
+            flutter create .
+          fi
 
-      - name: Upload APK
+      - name: Build APK (release)
+        run: flutter build apk --release
+        env:
+          JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64 || true
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Babil_ARM64
+          name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
