@@ -9,33 +9,30 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'   # veya '3.3.10' gibi uyumlu sürüm
+          flutter-version: "3.24.0"   # En stabil sürüm
 
       - name: Flutter Pub Get
         run: flutter pub get
 
-      - name: Ensure Android v2 embedding & Gradle wrapper
-        run: |
-          echo "Checking android folder..."
-          if [ ! -f android/gradlew ]; then
-            echo "No gradlew found - creating android with flutter create ."
-            flutter create .
-          fi
-
-      - name: Build APK (release)
+      - name: Build APK
         run: flutter build apk --release
-        env:
-          JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64 || true
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
+          name: BabilAnaliz-APK
           path: build/app/outputs/flutter-apk/app-release.apk
