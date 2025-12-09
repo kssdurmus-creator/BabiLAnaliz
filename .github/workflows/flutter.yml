@@ -1,31 +1,34 @@
-name: Build Flutter APK
+name: Build Flutter ARM64 APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   build:
+    name: Build APK (ARM64)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.0"
+          flutter-version: "stable"
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Build APK (ARM64)
+        run: |
+          flutter build apk --release --target-platform android-arm64
 
-      - name: Upload APK artifact
+      - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: BabilAnaliz-apk
+          name: Babil-ARM64-release
           path: build/app/outputs/flutter-apk/app-release.apk
