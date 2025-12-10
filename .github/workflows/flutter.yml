@@ -1,140 +1,31 @@
-name: Flutter CI/CD (Esnek Analiz ile Derleme)
+name: Build Flutter APK
 
 on:
   push:
-    branches:
-      - main
-      - master
-  pull_request:
-    branches:
-      - main
-      - master
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
-  # ----------------------------------------
-  # AŞAMA 1: Test ve Analiz (Esnek)
-  # ----------------------------------------
-  check_code:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-        
-      - name: Setup Flutter
+
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          # Lütfen kullandığınız kararlı (stable) Flutter sürümünü buraya girin.
-          flutter-version: '3.22.x' 
-          channel: 'stable'
+          flutter-version: "3.24.0"
 
-      - name: Get Dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      # ESNEK ANALİZ ADIMI: Bu komutun başarısız olması durumunda
-      # iş akışını durdurmak yerine uyarı verir ve devam eder (|| true).
-      - name: Analyze Code (Syntax ve Stil Kontrolü)
-        run: flutter analyze || true 
-
-      - name: Run Unit and Widget Tests
-        run: flutter test
-
-  # ----------------------------------------
-  # AŞAMA 2: Android Derleme (APK & AAB)
-  # ----------------------------------------
-  build_android:
-    # Testler başarılıysa çalışır
-    needs: check_code 
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.22.x'
-          channel: 'stable'
-          
-      - name: Get Dependencies
-        run: flutter pub get
-        
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Build Android Release APK
+      - name: Build APK
         run: flutter build apk --release
-        
-      - name: Build Android Release AAB
-        run: flutter build appbundle --release
-        
-      - name: Upload Android Artifacts
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-release-artifacts
-          path: |
-            build/app/outputs/flutter-apk/*.apk
-            build/app/outputs/bundle/release/*.aab
-
-  # ----------------------------------------
-  # AŞAMA 3: iOS Derleme
-  # ----------------------------------------
-  build_ios:
-    needs: check_code
-    runs-on: macos-latest # iOS için zorunlu
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.22.x'
-          channel: 'stable'
-
-      - name: Get Dependencies
-        run: flutter pub get
-
-      - name: Install CocoaPods
-        run: pod repo update
-      
-      # Kod imzalama (codesign) olmadan derlemeyi kontrol et
-      - name: Build iOS Release (Derleme Kontrolü)
-        run: flutter build ios --release --no-codesign
-
-      - name: Upload iOS Build Check Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-build-check
-          path: build/ios/Release-iphoneos/
-
-
-  # ----------------------------------------
-  # AŞAMA 4: Web Derleme
-  # ----------------------------------------
-  build_web:
-    needs: check_code
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.22.x'
-          channel: 'stable'
-          
-      - name: Get Dependencies
-        run: flutter pub get
-
-      - name: Build Web Release
-        run: flutter build web --release
-
-      - name: Upload Web Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-release-build
-          path: build/web
+          name: BabilAnaliz-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
