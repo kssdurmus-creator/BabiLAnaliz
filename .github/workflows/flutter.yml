@@ -1,38 +1,75 @@
-name: Build APK
+name: Flutter CI
 
+# Bu iş akışı, her 'push' ve 'pull request' olayında çalışacaktır.
+# Sadece 'master' veya 'main' dallarını hedefleyin.
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
 
 jobs:
-  build:
+  build_and_test:
+    # İş akışının çalışacağı işletim sistemi ortamı
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout repo
+      # 1. Proje Kodunu Çek
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: "temurin"
-          java-version: "17"
-
+      # 2. Flutter Ortamını Kur
+      # Burada istediğiniz Flutter sürümünü belirtebilirsiniz.
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.0"   # En stabil sürüm
+          flutter-version: '3.22.x' # Buraya istediğiniz sürümü yazın (örn: 3.22.0)
+          channel: 'stable'
 
-      - name: Flutter Pub Get
+      # 3. Bağımlılıkları Yükle
+      - name: Get Dependencies
         run: flutter pub get
 
-      - name: Build APK
+      # 4. Kod Analizi (Varsa Hataları Kontrol Et)
+      - name: Analyze Code
+        run: flutter analyze
+
+      # 5. Testleri Çalıştır
+      - name: Run Tests
+        run: flutter test
+        
+      # --- Android Derleme Adımları ---
+      
+      # 6. Android Derlemesi İçin Klasörleri Kontrol Et (Gerekliyse)
+      # Android Gradle Wrapper klasörünün varlığını sağlar.
+      - name: Ensure Android V2 Embedding & Gradle Wrapper
+        run: |
+          if [ ! -d "android/app/src/main/kotlin" ]; then
+            echo "Creating Android project structure for V2 embedding..."
+            flutter create --platforms=android . # Proje mevcutsa sadece gerekli dosyaları ekler
+          fi
+
+      # 7. Android APK (Uygulama İndirme Paketi) Oluşturma
+      - name: Build Android Release APK
         run: flutter build apk --release
 
-      - name: Upload APK
+      # 8. Android AAB (App Bundle) Oluşturma
+      - name: Build Android Release AAB
+        run: flutter build appbundle --release
+
+      # 9. Oluşturulan Dosyaları GitHub Artifact Olarak Yükle
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: BabilAnaliz-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          # Yüklenecek dosyanın adı (GitHub'da görünen)
+          name: release-artifacts
+          # Yüklenecek dosyaların yolu (APK ve AAB)
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/bundle/release/*.aab
+          # Artifact saklama süresi (isteğe bağlı)
+          retention-days: 7
