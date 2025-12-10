@@ -1,7 +1,6 @@
-name: Flutter CI
+name: Kapsamlı Flutter CI/CD (Test, Analiz, Android, iOS, Web)
 
-# Bu iş akışı, her 'push' ve 'pull request' olayında çalışacaktır.
-# Sadece 'master' veya 'main' dallarını hedefleyin.
+# Hangi dallarda ve olaylarda çalışacağını belirler
 on:
   push:
     branches:
@@ -13,63 +12,134 @@ on:
       - master
 
 jobs:
-  build_and_test:
-    # İş akışının çalışacağı işletim sistemi ortamı
+  # ----------------------------------------
+  # AŞAMA 1: Test ve Analiz (Hızlı Kontrol)
+  # ----------------------------------------
+  check_code:
     runs-on: ubuntu-latest
-    
     steps:
-      # 1. Proje Kodunu Çek
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      # 2. Flutter Ortamını Kur
-      # Burada istediğiniz Flutter sürümünü belirtebilirsiniz.
+        
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.x' # Buraya istediğiniz sürümü yazın (örn: 3.22.0)
+          # Lütfen kullandığınız kararlı (stable) Flutter sürümünü buraya girin.
+          flutter-version: '3.22.x' 
           channel: 'stable'
 
-      # 3. Bağımlılıkları Yükle
       - name: Get Dependencies
         run: flutter pub get
 
-      # 4. Kod Analizi (Varsa Hataları Kontrol Et)
-      - name: Analyze Code
+      - name: Analyze Code (Syntax ve Stil Kontrolü)
         run: flutter analyze
 
-      # 5. Testleri Çalıştır
-      - name: Run Tests
+      - name: Run Unit and Widget Tests
         run: flutter test
-        
-      # --- Android Derleme Adımları ---
-      
-      # 6. Android Derlemesi İçin Klasörleri Kontrol Et (Gerekliyse)
-      # Android Gradle Wrapper klasörünün varlığını sağlar.
-      - name: Ensure Android V2 Embedding & Gradle Wrapper
-        run: |
-          if [ ! -d "android/app/src/main/kotlin" ]; then
-            echo "Creating Android project structure for V2 embedding..."
-            flutter create --platforms=android . # Proje mevcutsa sadece gerekli dosyaları ekler
-          fi
 
-      # 7. Android APK (Uygulama İndirme Paketi) Oluşturma
+  # ----------------------------------------
+  # AŞAMA 2: Android Derleme (APK & AAB)
+  # ----------------------------------------
+  build_android:
+    needs: check_code # Kod analiz ve testler başarılıysa çalışır
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Flutter (Aynı Sürüm)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: 'stable'
+          
+      - name: Get Dependencies
+        run: flutter pub get
+        
+      # Android derlemesi için Java 17 gereklidir (varsayılan)
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
       - name: Build Android Release APK
         run: flutter build apk --release
-
-      # 8. Android AAB (App Bundle) Oluşturma
+        
       - name: Build Android Release AAB
         run: flutter build appbundle --release
-
-      # 9. Oluşturulan Dosyaları GitHub Artifact Olarak Yükle
-      - name: Upload Artifacts
+        
+      - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
-          # Yüklenecek dosyanın adı (GitHub'da görünen)
-          name: release-artifacts
-          # Yüklenecek dosyaların yolu (APK ve AAB)
+          name: android-release-artifacts
           path: |
             build/app/outputs/flutter-apk/*.apk
             build/app/outputs/bundle/release/*.aab
-          # Artifact saklama süresi (isteğe bağlı)
-          retention-days: 7
+
+
+  # ----------------------------------------
+  # AŞAMA 3: iOS Derleme (Sadece Test Amaçlı)
+  # ----------------------------------------
+  build_ios:
+    needs: check_code
+    # iOS derlemesi için macOS ortamı zorunludur
+    runs-on: macos-latest 
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter (Aynı Sürüm)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: 'stable'
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      # Pod dosyalarını yükle (iOS bağımlılıkları)
+      - name: Install CocoaPods
+        run: pod repo update
+      
+      - name: Build iOS Release (Sadece IPA oluşturma kontrolü)
+        # --no-codesign eklenmiştir, çünkü GitHub Actions'ta Apple geliştirici sertifikaları 
+        # olmadan gerçek bir dağıtıma hazır .ipa oluşturmak karmaşıktır.
+        # Bu adım, kodun iOS'ta derlenip derlenmediğini kontrol eder.
+        run: flutter build ios --release --no-codesign
+
+      - name: Upload iOS Build Check Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-check
+          # Sadece derleme çıktısı klasörünü yüklüyoruz
+          path: build/ios/Release-iphoneos/
+
+
+  # ----------------------------------------
+  # AŞAMA 4: Web Derleme
+  # ----------------------------------------
+  build_web:
+    needs: check_code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Flutter (Aynı Sürüm)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: 'stable'
+          
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Build Web Release
+        run: flutter build web --release
+
+      - name: Upload Web Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-release-build
+          path: build/web
